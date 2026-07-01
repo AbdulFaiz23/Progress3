@@ -7,6 +7,8 @@ from lms.schemas import (
     EnrolledCourseSchema, MessageSchema
 )
 from lms.auth import JWTAuth, is_student
+from lms.mongo import log_activity, update_learning_analytics
+from lms.tasks import send_enrollment_email, generate_certificate
 
 router = Router(tags=["Enrollments"])
 
@@ -23,6 +25,17 @@ def enroll_course(request, payload: EnrollSchema):
     if Enrollment.objects.filter(student=student, course=course).exists():
         raise HttpError(400, "Already enrolled in this course")
     enrollment = Enrollment.objects.create(student=student, course=course)
+    
+    log_activity(
+        user=student,
+        action="ENROLLMENT_CREATED",
+        resource_type="course",
+        resource_id=course.id,
+        metadata={"course_title": course.title},
+        request=request
+    )
+    send_enrollment_email.delay(student.email, course.title)
+    
     return 201, {
         "message": f"Successfully enrolled in '{course.title}'",
         "enrollment_id": enrollment.id,
@@ -105,6 +118,19 @@ def mark_progress(request, enrollment_id: int, payload: ProgressUpdateSchema):
         student=student, lesson__course=enrollment.course, completed=True
     ).count()
     pct = round((completed / total * 100) if total > 0 else 0, 1)
+    
+    log_activity(
+        user=student,
+        action="PROGRESS_UPDATED",
+        resource_type="lesson",
+        resource_id=lesson.id,
+        metadata={"completed": payload.completed, "course_id": enrollment.course.id},
+        request=request
+    )
+    update_learning_analytics(student.id, enrollment.course.id, total, completed)
+
+    if pct == 100.0 and payload.completed:
+        generate_certificate.delay(student.username, enrollment.course.title)
 
     return {
         "message": "Progress updated",

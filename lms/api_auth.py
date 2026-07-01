@@ -9,6 +9,7 @@ from lms.schemas import (
 from lms.auth import (
     JWTAuth, create_access_token, create_refresh_token, decode_token
 )
+from lms.mongo import log_activity
 
 router = Router(tags=["Auth"])
 
@@ -25,6 +26,15 @@ def register(request, payload: RegisterSchema):
         password=make_password(payload.password),
         role=payload.role
     )
+    
+    log_activity(
+        user=user,
+        action="REGISTER",
+        resource_type="user",
+        resource_id=user.id,
+        metadata={"role": user.role},
+        request=request
+    )
     return 201, {"message": "User registered successfully"}
 
 
@@ -37,6 +47,14 @@ def login(request, payload: LoginSchema):
 
     if not check_password(payload.password, user.password):
         raise HttpError(401, "Invalid username or password")
+
+    log_activity(
+        user=user,
+        action="LOGIN",
+        resource_type="user",
+        resource_id=user.id,
+        request=request
+    )
 
     return {
         "access_token": create_access_token(user.id),

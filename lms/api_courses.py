@@ -7,8 +7,29 @@ from lms.schemas import (
     CourseDetailSchema, PaginatedCoursesSchema, MessageSchema
 )
 from lms.auth import JWTAuth, is_instructor, is_admin, check_course_owner
+from django.core.cache import cache
+from lms.mongo import log_activity
 
 router = Router(tags=["Courses"])
+
+def invalidate_course_cache(course_id=None):
+    if course_id:
+        cache.delete(f"course:detail:{course_id}")
+    
+    # Delete list caches by scanning for pattern
+    import redis
+    from django.conf import settings
+    # We can connect directly to redis to scan, or use django-redis keys if supported
+    # django-redis iter_keys
+    try:
+        keys = cache.iter_keys("courses:list:*")
+        for key in keys:
+            cache.delete(key.decode('utf-8') if isinstance(key, bytes) else key)
+    except NotImplementedError:
+        cache.clear() # fallback if iter_keys not supported
+    except Exception:
+        pass
+
 
 
 def serialize_detail(course):
@@ -42,6 +63,11 @@ def list_courses(
     search: Optional[str] = None,
 ):
     """List all courses dengan pagination dan filter."""
+    cache_key = f"courses:list:{page}:{page_size}:{category_id or ''}:{search or ''}"
+    cached_data = cache.get(cache_key)
+    if cached_data:
+        return cached_data
+
     qs = Course.objects.for_listing()
     if category_id:
         qs = qs.filter(category_id=category_id)
@@ -49,7 +75,8 @@ def list_courses(
         qs = qs.filter(title__icontains=search)
     total = qs.count()
     courses = qs[(page - 1) * page_size: page * page_size]
-    return {
+    
+    response_data = {
         "total": total,
         "page": page,
         "page_size": page_size,
@@ -73,11 +100,18 @@ def list_courses(
             for c in courses
         ],
     }
+    cache.set(cache_key, response_data, timeout=300) # 5 minutes
+    return response_data
 
 
 @router.get("/{course_id}", response=CourseDetailSchema)
 def get_course(request, course_id: int):
     """Get detail sebuah course."""
+    cache_key = f"course:detail:{course_id}"
+    cached_data = cache.get(cache_key)
+    if cached_data:
+        return cached_data
+        
     try:
         course = (
             Course.objects
@@ -87,7 +121,10 @@ def get_course(request, course_id: int):
         )
     except Course.DoesNotExist:
         raise HttpError(404, "Course not found")
-    return serialize_detail(course)
+        
+    response_data = serialize_detail(course)
+    cache.set(cache_key, response_data, timeout=300)
+    return response_data
 
 
 @router.post("", response={201: CourseDetailSchema}, auth=JWTAuth())
@@ -110,6 +147,17 @@ def create_course(request, payload: CourseCreateSchema):
         .prefetch_related("lesson_set")
         .get(id=course.id)
     )
+    
+    log_activity(
+        user=instructor,
+        action="COURSE_CREATED",
+        resource_type="course",
+        resource_id=course.id,
+        metadata={"title": course.title},
+        request=request
+    )
+    invalidate_course_cache()
+    
     return 201, serialize_detail(course)
 
 
@@ -136,6 +184,17 @@ def update_course(request, course_id: int, payload: CourseUpdateSchema):
         except Category.DoesNotExist:
             raise HttpError(404, "Category not found")
     course.save()
+    
+    log_activity(
+        user=request.auth,
+        action="COURSE_UPDATED",
+        resource_type="course",
+        resource_id=course.id,
+        metadata={"title": course.title},
+        request=request
+    )
+    invalidate_course_cache(course.id)
+    
     return serialize_detail(course)
 
 
@@ -149,4 +208,15 @@ def delete_course(request, course_id: int):
         raise HttpError(404, "Course not found")
     title = course.title
     course.delete()
+    
+    log_activity(
+        user=request.auth,
+        action="COURSE_DELETED",
+        resource_type="course",
+        resource_id=course_id,
+        metadata={"title": title},
+        request=request
+    )
+    invalidate_course_cache(course_id)
+    
     return {"message": f"Course '{title}' deleted successfully"}
