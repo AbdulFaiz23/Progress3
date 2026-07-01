@@ -6,6 +6,7 @@ from lms.schemas import (
     CourseCreateSchema, CourseUpdateSchema,
     CourseDetailSchema, PaginatedCoursesSchema, MessageSchema
 )
+from lms.auth import JWTAuth, is_instructor, is_admin, check_course_owner
 
 router = Router(tags=["Courses"])
 
@@ -89,13 +90,11 @@ def get_course(request, course_id: int):
     return serialize_detail(course)
 
 
-@router.post("", response={201: CourseDetailSchema})
+@router.post("", response={201: CourseDetailSchema}, auth=JWTAuth())
+@is_instructor
 def create_course(request, payload: CourseCreateSchema):
     """Buat course baru."""
-    try:
-        instructor = User.objects.get(id=payload.instructor_id)
-    except User.DoesNotExist:
-        raise HttpError(404, "Instructor not found")
+    instructor = request.auth
     try:
         category = Category.objects.get(id=payload.category_id)
     except Category.DoesNotExist:
@@ -114,7 +113,7 @@ def create_course(request, payload: CourseCreateSchema):
     return 201, serialize_detail(course)
 
 
-@router.patch("/{course_id}", response=CourseDetailSchema)
+@router.patch("/{course_id}", response=CourseDetailSchema, auth=JWTAuth())
 def update_course(request, course_id: int, payload: CourseUpdateSchema):
     """Update course."""
     try:
@@ -126,6 +125,9 @@ def update_course(request, course_id: int, payload: CourseUpdateSchema):
         )
     except Course.DoesNotExist:
         raise HttpError(404, "Course not found")
+
+    check_course_owner(request, course)
+
     if payload.title is not None:
         course.title = payload.title
     if payload.category_id is not None:
@@ -137,7 +139,8 @@ def update_course(request, course_id: int, payload: CourseUpdateSchema):
     return serialize_detail(course)
 
 
-@router.delete("/{course_id}", response=MessageSchema)
+@router.delete("/{course_id}", response=MessageSchema, auth=JWTAuth())
+@is_admin
 def delete_course(request, course_id: int):
     """Hapus course."""
     try:

@@ -124,3 +124,4 @@ widgetsnbextension==4.0.14
 psycopg2-binary==2.9.9
 psycopg2-binary
 django-ninja==1.6.2
+PyJWT==2.10.1

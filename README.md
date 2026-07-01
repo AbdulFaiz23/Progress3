@@ -37,6 +37,7 @@ docker-compose exec web python manage.py createsuperuser
 - Django App → http://localhost:8000
 - Django Admin → http://localhost:8000/admin
 - API Docs (Swagger) → http://localhost:8000/api/docs
+- Postman Collection → Import file `postman_collection.json` ke Postman
 
 ---
 
@@ -71,30 +72,41 @@ Project ini menggunakan konfigurasi berikut (di docker-compose.yml):
 
 ### Progress 3
 - REST API dengan Django Ninja
-- Swagger UI dokumentasi otomatis
+- JWT Authentication (PyJWT) & Role-Based Access Control (RBAC)
+- Swagger UI dokumentasi otomatis (Support Bearer Token)
 - Pydantic schema validation
-- CRUD endpoints untuk Course
-- Enrollment & Progress tracking
+- CRUD endpoints untuk Course (Protected)
+- Enrollment & Progress tracking (Protected)
+- Postman Collection ready
 
 ---
 
 ## 🔌 API Endpoints
 
+### Auth
+| Method | Endpoint | Akses | Deskripsi |
+|--------|----------|-------|-----------|
+| POST | `/api/auth/register` | Public | Register user baru (student/instructor) |
+| POST | `/api/auth/login` | Public | Mendapatkan access & refresh token |
+| POST | `/api/auth/refresh` | Public | Refresh token |
+| GET | `/api/auth/me` | JWT | Lihat profile user login |
+| PUT | `/api/auth/me` | JWT | Update profile user login |
+
 ### Courses
-| Method | Endpoint | Deskripsi |
-|--------|----------|-----------|
-| GET | `/api/courses` | List semua course (pagination + filter) |
-| GET | `/api/courses/{id}` | Detail course |
-| POST | `/api/courses` | Buat course baru |
-| PATCH | `/api/courses/{id}` | Update course |
-| DELETE | `/api/courses/{id}` | Hapus course |
+| Method | Endpoint | Akses | Deskripsi |
+|--------|----------|-------|-----------|
+| GET | `/api/courses` | Public | List semua course (pagination + filter) |
+| GET | `/api/courses/{id}` | Public | Detail course |
+| POST | `/api/courses` | Instructor | Buat course baru |
+| PATCH | `/api/courses/{id}` | Owner/Admin | Update course |
+| DELETE | `/api/courses/{id}` | Admin | Hapus course |
 
 ### Enrollments
-| Method | Endpoint | Deskripsi |
-|--------|----------|-----------|
-| POST | `/api/enrollments` | Daftar ke course |
-| GET | `/api/enrollments/student/{id}` | Course yang diikuti student |
-| POST | `/api/enrollments/{id}/progress` | Update progress lesson |
+| Method | Endpoint | Akses | Deskripsi |
+|--------|----------|-------|-----------|
+| POST | `/api/enrollments` | Student | Daftar ke course |
+| GET | `/api/enrollments/my-courses` | Student | Course yang diikuti student |
+| POST | `/api/enrollments/{id}/progress` | Student | Update progress lesson |
 
 ---
 
@@ -159,9 +171,11 @@ simple-lms/
 │   ├── __init__.py
 │   ├── admin.py
 │   ├── api.py
+│   ├── api_auth.py
 │   ├── api_courses.py
 │   ├── api_enrollments.py
 │   ├── apps.py
+│   ├── auth.py
 │   ├── models.py
 │   ├── schemas.py
 │   ├── tests.py
@@ -171,6 +185,7 @@ simple-lms/
 ├── Dockerfile
 ├── .gitignore
 ├── manage.py
+├── postman_collection.json
 ├── README.md
 └── requirements.txt
 ```

@@ -1,4 +1,5 @@
 from ninja import NinjaAPI
+from lms.api_auth import router as auth_router
 from lms.api_courses import router as courses_router
 from lms.api_enrollments import router as enrollments_router
 
@@ -9,5 +10,6 @@ api = NinjaAPI(
     docs_url="/docs",
 )
 
+api.add_router("/auth/", auth_router)
 api.add_router("/courses/", courses_router)
 api.add_router("/enrollments/", enrollments_router)

@@ -1,4 +1,5 @@
 from ninja import Schema
+from pydantic import field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -16,6 +17,55 @@ class UserOutSchema(Schema):
     role: str
 
 
+class RegisterSchema(Schema):
+    username: str
+    email: str
+    password: str
+    role: str
+
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        return v
+
+    @field_validator('role')
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        if v not in ['student', 'instructor']:
+            raise ValueError("Role must be 'student' or 'instructor'")
+        return v
+
+
+class LoginSchema(Schema):
+    username: str
+    password: str
+
+
+class TokenSchema(Schema):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
+class RefreshSchema(Schema):
+    refresh_token: str
+
+
+class UserProfileSchema(Schema):
+    id: int
+    username: str
+    email: str
+    role: str
+
+
+class UserUpdateSchema(Schema):
+    email: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+
 class LessonOutSchema(Schema):
     id: int
     title: str
@@ -25,7 +75,6 @@ class LessonOutSchema(Schema):
 class CourseCreateSchema(Schema):
     title: str
     category_id: int
-    instructor_id: int
 
 
 class CourseUpdateSchema(Schema):
@@ -58,12 +107,10 @@ class PaginatedCoursesSchema(Schema):
 
 class EnrollSchema(Schema):
     course_id: int
-    student_id: int
 
 
 class ProgressUpdateSchema(Schema):
     lesson_id: int
-    student_id: int
     completed: bool = True
 
 

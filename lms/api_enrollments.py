@@ -6,17 +6,16 @@ from lms.schemas import (
     EnrollSchema, ProgressUpdateSchema,
     EnrolledCourseSchema, MessageSchema
 )
+from lms.auth import JWTAuth, is_student
 
 router = Router(tags=["Enrollments"])
 
 
-@router.post("", response={201: dict})
+@router.post("", response={201: dict}, auth=JWTAuth())
+@is_student
 def enroll_course(request, payload: EnrollSchema):
     """Daftarkan student ke course."""
-    try:
-        student = User.objects.get(id=payload.student_id)
-    except User.DoesNotExist:
-        raise HttpError(404, "Student not found")
+    student = request.auth
     try:
         course = Course.objects.get(id=payload.course_id)
     except Course.DoesNotExist:
@@ -30,13 +29,10 @@ def enroll_course(request, payload: EnrollSchema):
     }
 
 
-@router.get("/student/{student_id}", response=List[EnrolledCourseSchema])
-def my_courses(request, student_id: int):
+@router.get("/my-courses", response=List[EnrolledCourseSchema], auth=JWTAuth())
+def my_courses(request):
     """Lihat semua course yang diikuti student."""
-    try:
-        student = User.objects.get(id=student_id)
-    except User.DoesNotExist:
-        raise HttpError(404, "Student not found")
+    student = request.auth
 
     enrollments = Enrollment.objects.for_student_dashboard().filter(student=student)
     result = []
@@ -76,21 +72,24 @@ def my_courses(request, student_id: int):
     return result
 
 
-@router.post("/{enrollment_id}/progress", response=dict)
+@router.post("/{enrollment_id}/progress", response=dict, auth=JWTAuth())
+@is_student
 def mark_progress(request, enrollment_id: int, payload: ProgressUpdateSchema):
     """Mark lesson sebagai selesai atau belum."""
     try:
-        enrollment = Enrollment.objects.select_related("course").get(id=enrollment_id)
+        enrollment = Enrollment.objects.select_related("course", "student").get(id=enrollment_id)
     except Enrollment.DoesNotExist:
         raise HttpError(404, "Enrollment not found")
+        
+    if enrollment.student != request.auth:
+        raise HttpError(403, "Not your enrollment")
+
     try:
         lesson = Lesson.objects.get(id=payload.lesson_id, course=enrollment.course)
     except Lesson.DoesNotExist:
         raise HttpError(404, "Lesson not found in this course")
-    try:
-        student = User.objects.get(id=payload.student_id)
-    except User.DoesNotExist:
-        raise HttpError(404, "Student not found")
+
+    student = request.auth
 
     progress, created = Progress.objects.get_or_create(
         student=student,
