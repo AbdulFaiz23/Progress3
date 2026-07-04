@@ -11,6 +11,8 @@ class Command(BaseCommand):
         # 1. Create Users
         password = "password123"
         admin, _ = User.objects.get_or_create(username="admin_demo", defaults={"email": "admin@demo.com", "role": "admin"})
+        admin.is_staff = True
+        admin.is_superuser = True
         admin.set_password(password)
         admin.save()
         
