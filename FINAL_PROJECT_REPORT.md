@@ -340,6 +340,19 @@ Ditemukan bug pada `JWTAuth.authenticate()` di mana fungsi mengembalikan string 
 
 ---
 
+## Hasil Pengujian
+
+Seluruh test suite dijalankan dengan command:
+```bash
+docker-compose exec web python manage.py test lms.tests -v 2
+```
+
+![Hasil Test](SS/ss_12_test_results.png)
+
+Ringkasan: **25 tests, semua PASSED, waktu eksekusi ~18 detik**. Semua endpoint utama, izin RBAC, struktur cache, fitur N+1, dan tasks sudah terverifikasi bekerja dengan baik.
+
+---
+
 ## Kesimpulan
 
 Melalui project LMS ini, saya belajar tidak hanya cara membangun REST API modern dengan Django Ninja, tetapi juga bagaimana mengintegrasikan berbagai arsitektur *microservices-lite* secara nyata: **caching layer** dengan Redis untuk performa, **NoSQL document store** dengan MongoDB untuk fleksibilitas log & analytics, serta **event-driven async pattern** dengan Celery & RabbitMQ untuk non-blocking task processing.

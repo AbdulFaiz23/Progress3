@@ -32,7 +32,7 @@ class CourseQuerySet(models.QuerySet):
 
 class EnrollmentQuerySet(models.QuerySet):
     def for_student_dashboard(self):
-        return self.select_related('student', 'course') \
+        return self.select_related('student', 'course', 'course__instructor', 'course__category') \
                    .prefetch_related('course__lesson_set', 'progress_set')
 
 

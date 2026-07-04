@@ -55,7 +55,7 @@ def export_course_report(self, course_id):
     
     try:
         course = Course.objects.get(id=course_id)
-        enrollments = Enrollment.objects.filter(course=course).select_related('student')
+        enrollments = Enrollment.objects.filter(course=course).select_related('student', 'course')
         
         report_dir = os.path.join(settings.BASE_DIR, 'media', 'reports')
         os.makedirs(report_dir, exist_ok=True)
