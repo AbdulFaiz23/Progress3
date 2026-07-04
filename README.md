@@ -59,7 +59,7 @@ docker-compose exec web python manage.py createsuperuser
 - Django App ➡️ http://localhost:8000
 - Django Admin ➡️ http://localhost:8000/admin
 - API Docs (Swagger) ➡️ http://localhost:8000/api/docs
-- Postman Collection ➡️ Import file `postman_collection.json` ke Postman
+- Postman Collection ➡️ Import file `postman_collection.json` ke Postman (sudah lengkap dengan endpoint Reports & async Tasks)
 - **Flower Monitoring (Progress 4)** ➡️ http://localhost:5555
 - **RabbitMQ Dashboard** ➡️ http://localhost:15672 (User/Pass: `guest` / `guest`)
 
@@ -114,7 +114,7 @@ Project ini menggunakan konfigurasi berikut (di `docker-compose.yml` & `.env.exa
 - Pydantic schema validation
 - CRUD endpoints untuk Course (Protected)
 - Enrollment & Progress tracking (Protected)
-- Postman Collection ready
+- Postman Collection ready (sudah mencakup semua endpoint termasuk Reports & Tasks)
 
 ---
 
