@@ -31,11 +31,14 @@ class CoursesAPITests(TestCase):
         self.assertEqual(response.json()["total"], 1)
         self.assertEqual(response.json()["results"][0]["title"], "Python 101")
 
-    def test_get_course_detail(self):
-        """Test GET /api/courses/{id} return detail dengan benar"""
+    @patch('lms.api_courses.log_activity')
+    def test_get_course_detail(self, mock_log):
+        """Test GET /api/courses/{id} return detail dengan benar and logs view"""
         response = self.client.get(f"/api/courses/{self.course.id}")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["title"], "Python 101")
+        mock_log.assert_called_once()
+        self.assertEqual(mock_log.call_args[1]['action'], "COURSE_VIEWED")
 
     @patch('lms.api_courses.log_activity')
     def test_create_course_instructor(self, mock_log):

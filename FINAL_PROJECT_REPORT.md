@@ -52,7 +52,7 @@ Kombinasi stack ini menjadikan LMS jauh lebih skalabel dan performant — read-h
 
 ### Cluster 1 — Caching & Rate Limiting (Redis)
 
-Untuk mengurangi beban PostgreSQL dari request read-heavy, saya mengimplementasikan **cache-aside pattern** menggunakan Redis. Data course di-cache dengan TTL tertentu, dan diinvalidasi secara manual (`invalidate_course_cache()`) setiap ada perubahan data (Create/Update/Delete) — itulah yang disebut **cache invalidation strategy**.
+Untuk mengurangi beban PostgreSQL dari request read-heavy, saya mengimplementasikan **cache-aside pattern** menggunakan Redis. Data course di-cache dengan TTL tertentu, dan diinvalidasi secara manual (`invalidate_course_cache()`) setiap ada perubahan data (Create/Update/Delete course, serta saat proses Enroll dan Mark Progress) — itulah yang disebut **cache invalidation strategy**.
 
 Saya juga menggunakan Redis untuk melacak jumlah request per IP pada implementasi **API rate limiting** (60 request per menit) melalui custom Django middleware di `lms/middleware.py`. Penggunaan atomic `INCR` + `EXPIRE` memastikan penghitungan request aman dari race condition.
 
@@ -60,11 +60,14 @@ Saya juga menggunakan Redis untuk melacak jumlah request per IP pada implementas
 
 ### Cluster 2 — MongoDB & Analytics
 
-MongoDB dipilih sebagai Document Store karena sangat cocok untuk menampung data log aktivitas yang tidak terstruktur secara kaku dan berpotensi membesar dengan cepat. Setiap aksi penting pengguna (LOGIN, COURSE_CREATED, ENROLLMENT_CREATED, COURSE_UPDATED, COURSE_DELETED, dll.) dicatat ke collection `activity_logs`.
+MongoDB dipilih sebagai Document Store karena sangat cocok untuk menampung data log aktivitas yang tidak terstruktur secara kaku dan berpotensi membesar dengan cepat. Setiap aksi penting pengguna (LOGIN, COURSE_CREATED, ENROLLMENT_CREATED, COURSE_UPDATED, COURSE_DELETED, serta COURSE_VIEWED) dicatat ke collection `activity_logs`.
 
-Selain itu, data progres belajar per student per course tersimpan di collection `learning_analytics`. Saya menggunakan **MongoDB aggregation pipeline** di endpoint reports untuk menghitung tingkat popularitas course dan engagement murid secara efisien tanpa membebani PostgreSQL.
+Selain itu, data progres belajar per student per course tersimpan di collection `learning_analytics`, yang kini mencatat metrik mendetail seperti `last_accessed_lesson_id` dan frekuensi akses tiap lesson (`lesson_access_count`). Saya menggunakan **MongoDB aggregation pipeline** di endpoint reports untuk menghitung tingkat popularitas course, engagement murid, serta **Daily Active Users (DAU)** secara efisien tanpa membebani PostgreSQL.
 
 **File terkait:** `lms/mongo.py`, `lms/api_reports.py`, `lms/api_auth.py`, `lms/api_enrollments.py`
+
+![Daily Active Users](SS/ss_13_daily_active_users.png)
+*Contoh request ke endpoint Daily Active Users*
 
 ### Cluster 3 — Celery & Async Processing (RabbitMQ)
 

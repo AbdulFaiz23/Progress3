@@ -9,6 +9,7 @@ from lms.schemas import (
 from lms.auth import JWTAuth, is_student
 from lms.mongo import log_activity, update_learning_analytics
 from lms.tasks import send_enrollment_email, generate_certificate
+from lms.api_courses import invalidate_course_cache
 
 router = Router(tags=["Enrollments"])
 
@@ -25,6 +26,7 @@ def enroll_course(request, payload: EnrollSchema):
     if Enrollment.objects.filter(student=student, course=course).exists():
         raise HttpError(400, "Already enrolled in this course")
     enrollment = Enrollment.objects.create(student=student, course=course)
+    invalidate_course_cache(course.id)
     
     log_activity(
         user=student,
@@ -48,11 +50,16 @@ def my_courses(request):
     student = request.auth
 
     enrollments = Enrollment.objects.for_student_dashboard().filter(student=student)
+    
+    # Fetch all progresses for this student to avoid N+1
+    all_progresses = Progress.objects.filter(student=student)
+    prog_map = {p.lesson_id: p for p in all_progresses}
+    
     result = []
     for enrollment in enrollments:
         course = enrollment.course
         lessons = list(course.lesson_set.all())
-        progresses = {p.lesson_id: p for p in enrollment.progress_set.all()}
+        progresses = {l.id: prog_map[l.id] for l in lessons if l.id in prog_map}
         course.total_lessons = len(lessons)
         result.append({
             "enrollment_id": enrollment.id,
@@ -127,10 +134,12 @@ def mark_progress(request, enrollment_id: int, payload: ProgressUpdateSchema):
         metadata={"completed": payload.completed, "course_id": enrollment.course.id},
         request=request
     )
-    update_learning_analytics(student.id, enrollment.course.id, total, completed)
+    update_learning_analytics(student.id, enrollment.course.id, total, completed, lesson_id=lesson.id)
 
     if pct == 100.0 and payload.completed:
         generate_certificate.delay(student.username, enrollment.course.title)
+
+    invalidate_course_cache(enrollment.course.id)
 
     return {
         "message": "Progress updated",

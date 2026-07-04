@@ -45,7 +45,7 @@ def log_activity(user, action, resource_type, resource_id=None, metadata=None, r
             "resource_id": resource_id,
             "metadata": metadata or {},
             "ip_address": ip_address,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.utcnow()
         }
 
         db.activity_logs.insert_one(log_data)
@@ -54,7 +54,7 @@ def log_activity(user, action, resource_type, resource_id=None, metadata=None, r
     except Exception as e:
         logger.error(f"Unexpected error in log_activity: {e}")
 
-def update_learning_analytics(student_id, course_id, total_lessons, completed_lessons):
+def update_learning_analytics(student_id, course_id, total_lessons, completed_lessons, lesson_id=None):
     """
     Upserts the learning_analytics collection in MongoDB when progress is updated.
     """
@@ -72,9 +72,13 @@ def update_learning_analytics(student_id, course_id, total_lessons, completed_le
                 "total_lessons": total_lessons,
                 "completed_lessons": completed_lessons,
                 "completion_percentage": percentage,
-                "last_activity": datetime.now(timezone.utc).isoformat()
+                "last_activity": datetime.utcnow()
             }
         }
+        
+        if lesson_id:
+            analytics_data["$set"]["last_accessed_lesson_id"] = lesson_id
+            analytics_data["$inc"] = {f"lesson_access_count.{lesson_id}": 1}
 
         db.learning_analytics.update_one(
             {"student_id": student_id, "course_id": course_id},

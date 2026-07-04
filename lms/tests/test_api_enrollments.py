@@ -3,6 +3,7 @@ from django.test.utils import CaptureQueriesContext
 from django.db import connection
 from lms.models import User, Category, Course, Enrollment, Lesson, Progress
 import json
+from unittest.mock import patch
 
 class EnrollmentsAPITests(TestCase):
     def setUp(self):
@@ -52,3 +53,29 @@ class EnrollmentsAPITests(TestCase):
 
         # The query count should be the same (not increasing with enrollments)
         self.assertEqual(query_count_3, query_count_6)
+
+    @patch('lms.api_enrollments.update_learning_analytics')
+    def test_enroll_and_progress_invalidate_cache(self, mock_analytics):
+        from django.core.cache import cache
+        c = Course.objects.create(title="Test Cache Course", instructor=self.instructor, category=self.category1)
+        l = Lesson.objects.create(course=c, title="Lesson 1", order=1)
+        
+        cache_key = f"course:detail:{c.id}"
+        cache.set(cache_key, {"test": "data"})
+        self.assertIsNotNone(cache.get(cache_key))
+        
+        auth_headers = {"HTTP_AUTHORIZATION": f"Bearer {self.student_token}"}
+        # Enroll should invalidate
+        resp = self.client.post("/api/enrollments", json.dumps({"course_id": c.id}), content_type="application/json", **auth_headers)
+        self.assertEqual(resp.status_code, 201)
+        self.assertIsNone(cache.get(cache_key))
+        
+        cache.set(cache_key, {"test": "data2"})
+        # Mark progress should invalidate
+        resp = self.client.post(f"/api/enrollments/{resp.json()['enrollment_id']}/progress", json.dumps({"lesson_id": l.id, "completed": True}), content_type="application/json", **auth_headers)
+        self.assertEqual(resp.status_code, 200)
+        self.assertIsNone(cache.get(cache_key))
+        
+        # Verify analytics was updated with lesson_id
+        mock_analytics.assert_called()
+        self.assertEqual(mock_analytics.call_args[1].get('lesson_id'), l.id)

@@ -116,6 +116,14 @@ def get_course(request, course_id: int):
     cached_data = cache.get(cache_key)
     if cached_data:
         request.META['X_CACHE'] = 'HIT'
+        log_activity(
+            user=getattr(request, "auth", None),
+            action="COURSE_VIEWED",
+            resource_type="course",
+            resource_id=course_id,
+            metadata={"title": cached_data.get("title", "")},
+            request=request
+        )
         return cached_data
         
     try:
@@ -131,6 +139,14 @@ def get_course(request, course_id: int):
     response_data = serialize_detail(course)
     cache.set(cache_key, response_data, timeout=300)
     request.META['X_CACHE'] = 'MISS'
+    log_activity(
+        user=getattr(request, "auth", None),
+        action="COURSE_VIEWED",
+        resource_type="course",
+        resource_id=course_id,
+        metadata={"title": course.title},
+        request=request
+    )
     return response_data
 
 

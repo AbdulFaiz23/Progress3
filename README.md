@@ -207,6 +207,7 @@ sequenceDiagram
 |--------|----------|-------|-----------|
 | GET | `/api/reports/course-popularity` | Admin/Instructor | Agregasi MongoDB untuk popularitas course |
 | GET | `/api/reports/student-engagement` | Admin/Instructor | Agregasi MongoDB untuk rata-rata penyelesaian course |
+| GET | `/api/reports/daily-active-users` | Admin/Instructor | Agregasi MongoDB untuk daily active users |
 
 ### Tasks (Progress 4)
 | Method | Endpoint | Akses | Deskripsi |

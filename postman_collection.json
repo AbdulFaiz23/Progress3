@@ -475,6 +475,30 @@
                             ]
                         }
                     }
+                },
+                {
+                    "name": "Daily Active Users",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/reports/daily-active-users",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "reports",
+                                "daily-active-users"
+                            ]
+                        }
+                    },
+                    "response": []
                 }
             ]
         },
